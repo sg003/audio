@@ -2,7 +2,13 @@ import streamlit as st
 import speech_recognition as sr
 from googletrans import Translator
 from gtts import gTTS
+from pydub import AudioSegment
 import os
+
+def convert_audio_to_wav(input_path, output_path):
+    """Convert MP3 or M4A to WAV."""
+    audio = AudioSegment.from_file(input_path)
+    audio.export(output_path, format="wav")
 
 def speech_to_text(audio_path):
     recognizer = sr.Recognizer()
@@ -25,22 +31,33 @@ def text_to_speech(text, lang, output_filename):
 
 st.title("Speech Translator: English to Tamil & Kannada")
 
-uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3"])
+uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "m4a"])
 text_input = st.text_area("Or enter text to translate")
 
 if st.button("Translate"):
     text = ""
     if uploaded_file is not None:
-        filepath = f"temp_audio.{uploaded_file.name.split('.')[-1]}"
-        with open(filepath, "wb") as f:
+        input_ext = uploaded_file.name.split(".")[-1]
+        temp_path = f"temp_audio.{input_ext}"
+        wav_path = "converted_audio.wav"
+
+        with open(temp_path, "wb") as f:
             f.write(uploaded_file.read())
-        text = speech_to_text(filepath)
+
+        if input_ext in ["mp3", "m4a"]:
+            convert_audio_to_wav(temp_path, wav_path)
+        else:
+            wav_path = temp_path  # Already in WAV format
+
+        text = speech_to_text(wav_path)
+    
     elif text_input:
         text = text_input
     
     if text:
         tamil_text = translate_text(text, "ta")
         kannada_text = translate_text(text, "kn")
+        
         st.write("### Tamil Translation:")
         st.write(tamil_text)
         st.write("### Kannada Translation:")
@@ -51,3 +68,9 @@ if st.button("Translate"):
         
         st.audio(tamil_audio, format="audio/mp3")
         st.audio(kannada_audio, format="audio/mp3")
+
+    # Clean up temporary files
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
+    if os.path.exists(wav_path):
+        os.remove(wav_path)
